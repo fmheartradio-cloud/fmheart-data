@@ -1,0 +1,45 @@
+# Runs inside fmheartradio-cloud/fmheart-data so GITHUB_TOKEN can write collections/.
+name: Ingest news into docs store
+
+on:
+  schedule:
+    - cron: "5,15,25,35,45,55 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Checkout docs repo
+        uses: actions/checkout@v4
+
+      - name: Checkout app
+        uses: actions/checkout@v4
+        with:
+          repository: fmheartradio-cloud/fmheart
+          path: app
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - name: Install
+        working-directory: app
+        run: npm ci
+
+      - name: Run ingest → GitHub docs
+        working-directory: app
+        env:
+          GITHUB_DOCS_REPO: fmheartradio-cloud/fmheart-data
+          GITHUB_DOCS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          FACEBOOK_AUTO_POST: "false"
+          FACEBOOK_NEWSBOT_AUTO_POST: "false"
+        run: npx tsx --tsconfig tsconfig.json scripts/run-ingest-direct.mjs
